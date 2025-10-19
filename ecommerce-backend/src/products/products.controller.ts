@@ -120,7 +120,7 @@ export class ProductsController {
   )
   async uploadImage(
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
   ) {
     if (!file) throw new BadRequestException('No se envió archivo');
 
