@@ -41,6 +41,11 @@ async function createApp() {
 }
 
 export default async function handler(req: any, res: any) {
+  // Set DATABASE_URL from DATABASE_DATABASE_URL if not present
+  if (!process.env.DATABASE_URL && process.env.DATABASE_DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.DATABASE_DATABASE_URL;
+  }
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
