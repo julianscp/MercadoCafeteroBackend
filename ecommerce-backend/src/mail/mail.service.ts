@@ -1,45 +1,51 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly resend: Resend | null;
+  private readonly transporter: nodemailer.Transporter | null;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      this.logger.warn('⚠️ No se encontró RESEND_API_KEY en las variables de entorno. El servicio de correo estará deshabilitado.');
-      this.resend = null;
+    const mailHost = process.env.MAIL_HOST;
+    const mailUser = process.env.MAIL_USER;
+    const mailPass = process.env.MAIL_PASS;
+
+    if (!mailHost || !mailUser || !mailPass) {
+      this.logger.warn('⚠️ No se encontraron las variables de entorno de email (MAIL_HOST, MAIL_USER, MAIL_PASS). El servicio de correo estará deshabilitado.');
+      this.transporter = null;
     } else {
-      this.resend = new Resend(apiKey);
+      this.transporter = nodemailer.createTransport({
+        host: mailHost,
+        port: parseInt(process.env.MAIL_PORT || '587'),
+        secure: false,
+        auth: {
+          user: mailUser,
+          pass: mailPass,
+        },
+      });
     }
   }
 
   async sendMail(to: string, subject: string, text: string, html?: string) {
-    if (!this.resend) {
+    if (!this.transporter) {
       this.logger.warn(`📧 [SIMULADO] Correo no enviado - Servicio deshabilitado. Para: ${to}, Asunto: ${subject}`);
       return { id: 'simulated-email-id' };
     }
 
     try {
-      const fromEmail = process.env.RESEND_SENDER || 'Mercado Cafetero <onboarding@resend.dev>';
+      const fromEmail = process.env.MAIL_FROM || process.env.MAIL_USER || 'Mercado Cafetero';
 
-      const response = await this.resend.emails.send({
+      const info = await this.transporter.sendMail({
         from: fromEmail,
-        to: [to],
+        to,
         subject,
         text,
         html,
       });
 
-      if (response.error) {
-        this.logger.error(`❌ Error al enviar correo: ${response.error.message}`);
-        throw new Error(response.error.message);
-      }
-
-      this.logger.log(`✅ Correo enviado correctamente. ID: ${response.data?.id}`);
-      return { id: response.data?.id };
+      this.logger.log(`✅ Correo enviado correctamente. ID: ${info.messageId}`);
+      return { id: info.messageId };
     } catch (error: any) {
       this.logger.error(`❌ Error inesperado: ${error.message}`);
       throw error;
