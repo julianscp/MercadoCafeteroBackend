@@ -46,13 +46,8 @@ export class MetricsService {
   });
 
   constructor() {
-    // Registrar las métricas
-    register.registerMetric(this.ordersCounter);
-    register.registerMetric(this.responseTime);
-    register.registerMetric(this.stockGauge);
-    register.registerMetric(this.activeUsersGauge);
-    register.registerMetric(this.errorsCounter);
-    register.registerMetric(this.loginCounter);
+    // Las métricas se registran automáticamente al ser creadas
+    // No necesitamos registrarlas manualmente
   }
 
   // Métodos para registrar métricas
