@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { LoggingService } from '../logging/logging.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private loggingService: LoggingService,
+    private mailService: MailService,
   ) {}
 
   async createOrder(userId: number, createOrderDto: CreateOrderDto, userEmail?: string, ipAddress?: string) {
@@ -96,6 +98,20 @@ export class OrdersService {
         });
 
         console.log(`Stock actualizado: ${updatedProduct.stock}`);
+
+        // ⚠️ Verificación de alerta de stock bajo
+        if (nuevoStock <= (product.stockMinimo ?? 0)) {
+          await this.prisma.alerta.create({
+            data: {
+              productoId: orderProduct.id,
+              mensaje: `El producto "${product.nombre}" está en nivel crítico de stock (${nuevoStock} unidades)`,
+            },
+          });
+
+          // Enviar correo al admin
+          const adminEmail = process.env.ADMIN_EMAIL || 'admin@mercadocafetero.com';
+          await this.mailService.sendStockAlert(adminEmail, product.nombre, nuevoStock);
+        }
 
         // Registrar log de cambio en inventario
         await this.loggingService.logInventoryChange(
