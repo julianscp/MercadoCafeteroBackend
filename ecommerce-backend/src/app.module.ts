@@ -14,6 +14,7 @@ import { OrdersModule } from './orders/orders.module';
 import { ReclamosModule } from './reclamos/reclamos.module';
 import { LogsModule } from './logs/logs.module';
 import { LoggingModule } from './logging/logging.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
 
@@ -39,6 +40,7 @@ import { ErrorInterceptor } from './common/interceptors/error.interceptor';
     ReclamosModule,
     LogsModule,
     LoggingModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [

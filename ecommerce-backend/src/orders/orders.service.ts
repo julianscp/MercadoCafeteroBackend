@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { LoggingService } from '../logging/logging.service';
 import { MailService } from '../mail/mail.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Injectable()
 export class OrdersService {
@@ -10,6 +11,7 @@ export class OrdersService {
     private prisma: PrismaService,
     private loggingService: LoggingService,
     private mailService: MailService,
+    private metricsService: MetricsService,
   ) {}
 
   async createOrder(userId: number, createOrderDto: CreateOrderDto, userEmail?: string, ipAddress?: string) {
@@ -151,6 +153,9 @@ export class OrdersService {
       total,
       ipAddress
     );
+
+    // Registrar métrica de pedido exitoso
+    this.metricsService.incrementOrders('success');
 
     return order;
   }
