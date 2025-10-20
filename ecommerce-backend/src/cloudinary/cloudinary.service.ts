@@ -8,7 +8,22 @@ export class CloudinaryService {
 
   constructor() {
     // Lee CLOUDINARY_URL del .env automáticamente y forza HTTPS
-    cloudinary.config({ secure: true });
+    const cloudinaryUrl = process.env.CLOUDINARY_URL;
+    
+    if (!cloudinaryUrl) {
+      this.logger.warn('⚠️ No se encontró CLOUDINARY_URL en las variables de entorno. El servicio de imágenes estará deshabilitado.');
+      return;
+    }
+
+    // Configurar Cloudinary con la URL completa
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
+    });
+
+    this.logger.log('✅ Cloudinary configurado correctamente');
   }
 
   uploadImage(
