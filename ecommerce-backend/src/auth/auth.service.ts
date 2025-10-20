@@ -14,6 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { LoggingService } from '../logging/logging.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private loggingService: LoggingService,
+    private metricsService: MetricsService,
   ) {}
 
   // 📌 Registro con token de verificación
@@ -173,6 +175,9 @@ export class AuthService {
       // Log de intento fallido
       await this.loggingService.logFailedLogin(email, 'Contraseña incorrecta');
 
+      // Registrar métrica de login fallido
+      this.metricsService.incrementLogin('failed');
+
       throw new UnauthorizedException('Contraseña incorrecta');
     }
 
@@ -197,6 +202,9 @@ export class AuthService {
     
     // Log de inicio de sesión exitoso
     await this.loggingService.logLogin(user.id, user.email, ipAddress, userAgent);
+    
+    // Registrar métrica de login exitoso
+    this.metricsService.incrementLogin('success');
     
     return { access_token: this.jwtService.sign(payload) };
   }

@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailModule } from '../mail/mail.module';
 import { UsersModule } from '../users/users.module';
 import { LoggingModule } from '../logging/logging.module';
+import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { LoggingModule } from '../logging/logging.module';
       
     }),
     MailModule,
-    LoggingModule
+    LoggingModule,
+    MetricsModule
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
