@@ -1,7 +1,21 @@
+import { IsArray, IsNumber, IsPositive, ValidateNested, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class ProductItemDto {
+  @IsNumber()
+  @IsPositive()
+  productId: number;
+
+  @IsNumber()
+  @IsPositive()
+  cantidad: number;
+}
+
 export class CreatePreferenceDto {
-  items: {
-    productId: number;
-    cantidad: number;
-  }[];
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ProductItemDto)
+  items: ProductItemDto[];
 }
 
