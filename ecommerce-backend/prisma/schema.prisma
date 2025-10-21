@@ -90,13 +90,15 @@ model Alerta {
 }
 
 model Order {
-  id         Int      @id @default(autoincrement())
-  user       User     @relation(fields: [userId], references: [id])
-  userId     Int
-  products   Json     // Productos simulados en formato JSON
-  total      Float
-  status     String   @default("simulado")
-  createdAt  DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  user            User     @relation(fields: [userId], references: [id])
+  userId          Int
+  products        Json     // Productos en formato JSON
+  total           Float
+  status          String   @default("pendiente") // pendiente, completado, cancelado
+  mercadoPagoData Json?    // Datos de Mercado Pago (preferenceId, paymentId, etc.)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
 }
 
 model Reclamo {

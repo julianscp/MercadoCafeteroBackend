@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "mercadoPagoData" JSONB,
+ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ALTER COLUMN "status" SET DEFAULT 'pendiente';

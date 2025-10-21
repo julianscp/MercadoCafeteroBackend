@@ -17,6 +17,7 @@ import { LoggingModule } from './logging/logging.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ErrorInterceptor } from './common/interceptors/error.interceptor';
     LogsModule,
     LoggingModule,
     MetricsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
