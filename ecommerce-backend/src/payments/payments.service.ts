@@ -36,12 +36,14 @@ export class PaymentsService {
    * Crea una preferencia de pago en Mercado Pago
    */
   async createPreference(userId: number, createPreferenceDto: CreatePreferenceDto) {
-    const { items } = createPreferenceDto;
+    try {
+      console.log('🛒 Creando preferencia de pago para usuario:', userId);
+      const { items } = createPreferenceDto;
 
-    // Validar que haya productos
-    if (!items || items.length === 0) {
-      throw new BadRequestException('Debe incluir al menos un producto');
-    }
+      // Validar que haya productos
+      if (!items || items.length === 0) {
+        throw new BadRequestException('Debe incluir al menos un producto');
+      }
 
     // Obtener información del usuario
     const user = await this.prisma.user.findUnique({
@@ -126,6 +128,10 @@ export class PaymentsService {
     });
 
     // Crear preferencia en Mercado Pago
+    console.log('💰 Total del pedido:', total);
+    console.log('📦 Items para Mercado Pago:', JSON.stringify(preferenceItems, null, 2));
+    console.log('🔗 URLs:', { frontendUrl, backendUrl });
+    
     const preference = await this.preferenceClient.create({
       body: {
         items: preferenceItems,
@@ -148,6 +154,8 @@ export class PaymentsService {
         },
       }
     });
+    
+    console.log('✅ Preferencia creada exitosamente:', preference.id);
 
     // Actualizar orden con el ID de preferencia
     await this.prisma.order.update({
@@ -165,6 +173,11 @@ export class PaymentsService {
       initPoint: preference.init_point, // URL para redirigir al usuario
       sandboxInitPoint: preference.sandbox_init_point, // URL para modo sandbox
     };
+    } catch (error) {
+      console.error('❌ Error creando preferencia de Mercado Pago:', error);
+      console.error('📋 Detalles del error:', JSON.stringify(error, null, 2));
+      throw error;
+    }
   }
 
   /**
