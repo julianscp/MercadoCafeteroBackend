@@ -77,7 +77,8 @@ export class OrdersService {
         userId,
         products: orderProducts,
         total,
-        status: 'completado' // Cambiamos a completado para simular compra exitosa
+        status: 'completado', // Cambiamos a completado para simular compra exitosa
+        mercadoPagoData: {} // Objeto vacío para órdenes creadas sin Mercado Pago
       }
     });
 
