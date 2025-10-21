@@ -79,7 +79,7 @@ export class PaymentsService {
 
     // Preparar items para Mercado Pago
     const preferenceItems = items.map(item => {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find(p => p.id === item.productId)!;
       const precioConDescuento = product.descuento 
         ? product.precio * (1 - product.descuento / 100)
         : product.precio;
@@ -106,7 +106,7 @@ export class PaymentsService {
       data: {
         userId,
         products: items.map(item => {
-          const product = products.find(p => p.id === item.productId);
+          const product = products.find(p => p.id === item.productId)!;
           const precioConDescuento = product.descuento 
             ? product.precio * (1 - product.descuento / 100)
             : product.precio;
@@ -184,10 +184,16 @@ export class PaymentsService {
         console.log('💳 Información del pago:', JSON.stringify(payment, null, 2));
 
         const externalReference = payment.external_reference;
+        
+        if (!externalReference) {
+          console.error('❌ No se encontró external_reference en el pago');
+          return { processed: false };
+        }
+        
         const orderId = parseInt(externalReference);
 
         if (!orderId) {
-          console.error('❌ No se encontró external_reference en el pago');
+          console.error('❌ external_reference no es un número válido');
           return { processed: false };
         }
 
@@ -242,7 +248,7 @@ export class PaymentsService {
             status: newStatus,
             mercadoPagoData: {
               preferenceId: order.mercadoPagoData?.['preferenceId'],
-              paymentId: payment.id.toString(),
+              paymentId: payment.id?.toString() || 'unknown',
               paymentStatus: payment.status,
               paymentStatusDetail: payment.status_detail,
               transactionAmount: payment.transaction_amount,
