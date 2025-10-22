@@ -15,9 +15,9 @@ import { ReclamosModule } from './reclamos/reclamos.module';
 import { LogsModule } from './logs/logs.module';
 import { LoggingModule } from './logging/logging.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { PaymentsModule } from './payments/payments.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
-import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [

@@ -7,10 +7,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  /**
-   * Crea una preferencia de pago en Mercado Pago
-   * El usuario debe estar autenticado
-   */
   @UseGuards(JwtAuthGuard)
   @Post('create-preference')
   async createPreference(
@@ -21,21 +17,12 @@ export class PaymentsController {
     return this.paymentsService.createPreference(userId, createPreferenceDto);
   }
 
-  /**
-   * Webhook para recibir notificaciones de Mercado Pago
-   * Este endpoint NO requiere autenticación (es llamado por Mercado Pago)
-   */
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async processWebhook(@Body() body: any) {
-    console.log('🔔 Webhook recibido:', body);
     return this.paymentsService.processWebhook(body);
   }
 
-  /**
-   * Obtiene el estado de una orden
-   * El usuario debe estar autenticado y ser dueño de la orden
-   */
   @UseGuards(JwtAuthGuard)
   @Get('order/:id')
   async getOrderStatus(
@@ -45,18 +32,5 @@ export class PaymentsController {
     const userId = req.user.userId;
     return this.paymentsService.getOrderStatus(orderId, userId);
   }
-
-  /**
-   * Fuerza la sincronización de una orden con Mercado Pago
-   * El usuario debe estar autenticado y ser dueño de la orden
-   */
-  @UseGuards(JwtAuthGuard)
-  @Post('order/:id/sync')
-  async syncOrder(
-    @Request() req,
-    @Param('id', ParseIntPipe) orderId: number
-  ) {
-    const userId = req.user.userId;
-    return this.paymentsService.syncOrderWithMercadoPago(orderId, userId);
-  }
 }
+
