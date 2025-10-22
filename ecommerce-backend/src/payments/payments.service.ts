@@ -139,6 +139,12 @@ export class PaymentsService {
           email: user.email,
           name: user.nombre,
         },
+        payment_methods: {
+          excluded_payment_types: [],
+          excluded_payment_methods: [],
+          installments: 1,
+        },
+        binary_mode: true, // true = solo approved o rejected (no pending)
         back_urls: {
           success: `${frontendUrl}/cliente/pago/exito?orderId=${order.id}`,
           failure: `${frontendUrl}/cliente/pago/error?orderId=${order.id}`,
