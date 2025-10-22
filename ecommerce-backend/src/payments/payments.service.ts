@@ -159,9 +159,9 @@ export class PaymentsService {
     }
   }
 
-  async checkPaymentStatus(orderId: number, userId: number) {
+  async checkPaymentStatus(orderId: number, userId: number, paymentId?: string) {
     try {
-      console.log('🔍 Verificando pago para orden:', orderId);
+      console.log('🔍 Verificando pago para orden:', orderId, paymentId ? `con payment_id: ${paymentId}` : '');
 
       // Buscar orden
       const order = await this.prisma.order.findFirst({
@@ -182,36 +182,69 @@ export class PaymentsService {
         };
       }
 
-      // Obtener preferenceId
-      const preferenceId = order.mercadoPagoData?.['preferenceId'];
-      if (!preferenceId) {
-        throw new BadRequestException('Orden sin preferencia de pago');
+      let approvedPayment: any = null;
+
+      // OPCIÓN 1: Si tenemos paymentId, consultar directamente ese pago
+      if (paymentId) {
+        console.log('💳 Consultando pago directo:', paymentId);
+        
+        const paymentUrl = `https://api.mercadopago.com/v1/payments/${paymentId}`;
+        const paymentResponse = await fetch(paymentUrl, {
+          headers: { 'Authorization': `Bearer ${this.accessToken}` }
+        });
+
+        if (paymentResponse.ok) {
+          const payment = await paymentResponse.json();
+          console.log('📊 Pago encontrado:', payment.id, '- Estado:', payment.status);
+          
+          // Verificar que el pago corresponde a esta orden
+          if (payment.external_reference === orderId.toString()) {
+            if (payment.status === 'approved') {
+              approvedPayment = payment;
+            } else if (payment.status === 'rejected') {
+              console.log('❌ Pago rechazado');
+              await this.prisma.order.update({
+                where: { id: orderId },
+                data: { status: 'cancelado' }
+              });
+              return {
+                orderId: order.id,
+                status: 'cancelado',
+                message: 'Pago rechazado'
+              };
+            }
+          } else {
+            console.warn('⚠️ El payment_id no corresponde a esta orden');
+          }
+        }
       }
 
-      // Buscar pagos asociados a esta preferencia
-      console.log('🔎 Buscando pagos para preferencia:', preferenceId);
-      
-      const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${orderId}`;
-      const response = await fetch(searchUrl, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }
-      });
+      // OPCIÓN 2: Si no tenemos paymentId o no funcionó, buscar por external_reference
+      if (!approvedPayment) {
+        console.log('🔎 Buscando pagos por external_reference:', orderId);
+        
+        const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${orderId}`;
+        const response = await fetch(searchUrl, {
+          headers: { 'Authorization': `Bearer ${this.accessToken}` }
+        });
 
-      if (!response.ok) {
-        console.error('❌ Error consultando pagos:', response.status);
-        return {
-          orderId: order.id,
-          status: 'pendiente',
-          message: 'No se pudo verificar el pago, intenta nuevamente'
-        };
+        if (!response.ok) {
+          console.error('❌ Error consultando pagos:', response.status);
+          return {
+            orderId: order.id,
+            status: 'pendiente',
+            message: 'No se pudo verificar el pago, intenta nuevamente'
+          };
+        }
+
+        const data = await response.json();
+        const payments = data.results || [];
+
+        console.log('💳 Pagos encontrados por búsqueda:', payments.length);
+
+        // Buscar pago aprobado
+        approvedPayment = payments.find(p => p.status === 'approved');
       }
-
-      const data = await response.json();
-      const payments = data.results || [];
-
-      console.log('💳 Pagos encontrados:', payments.length);
-
-      // Buscar pago aprobado
-      const approvedPayment = payments.find(p => p.status === 'approved');
 
       if (approvedPayment) {
         console.log('✅ Pago aprobado encontrado:', approvedPayment.id);
@@ -227,24 +260,7 @@ export class PaymentsService {
         };
       }
 
-      // Si hay pago rechazado
-      const rejectedPayment = payments.find(p => p.status === 'rejected');
-      if (rejectedPayment) {
-        console.log('❌ Pago rechazado');
-        
-        await this.prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'cancelado' }
-        });
-
-        return {
-          orderId: order.id,
-          status: 'cancelado',
-          message: 'Pago rechazado'
-        };
-      }
-
-      // Aún pendiente
+      // Si aún está pendiente
       console.log('⏳ Pago aún pendiente');
       return {
         orderId: order.id,

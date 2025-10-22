@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePreferenceDto } from './dto/create-preference.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -21,10 +21,11 @@ export class PaymentsController {
   @Get('check/:orderId')
   async checkPayment(
     @Request() req,
-    @Param('orderId', ParseIntPipe) orderId: number
+    @Param('orderId', ParseIntPipe) orderId: number,
+    @Query('paymentId') paymentId?: string
   ) {
     const userId = req.user.userId;
-    return this.paymentsService.checkPaymentStatus(orderId, userId);
+    return this.paymentsService.checkPaymentStatus(orderId, userId, paymentId);
   }
 
   @UseGuards(JwtAuthGuard)
