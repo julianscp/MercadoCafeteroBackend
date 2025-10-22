@@ -186,7 +186,15 @@ export class PaymentsService {
   async processWebhook(data: any) {
     console.log('📨 Webhook recibido de Mercado Pago:', JSON.stringify(data, null, 2));
 
-    // Mercado Pago envía notificaciones de tipo "payment" o "merchant_order"
+    // IGNORAR webhooks de tipo "payment" - llegan demasiado temprano
+    // Solo procesamos "merchant_order" que es más confiable
+    if (data.type === 'payment' || data.topic === 'payment') {
+      console.log('⏭️ Ignorando webhook de payment (se procesará con merchant_order)');
+      return { processed: true, message: 'Payment webhook ignored, waiting for merchant_order' };
+    }
+
+    // Código anterior comentado - ya no se usa
+    /*
     if (data.type === 'payment' || data.topic === 'payment') {
       const paymentId = data.data?.id || data.id;
 
@@ -304,6 +312,7 @@ export class PaymentsService {
         return { processed: false, error: error.message };
       }
     }
+    */
 
     // Procesar notificaciones de tipo merchant_order
     if (data.topic === 'merchant_order') {
