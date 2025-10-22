@@ -193,14 +193,17 @@ export class PaymentsService {
           headers: { 'Authorization': `Bearer ${this.accessToken}` }
         });
 
+        console.log('📡 Status de respuesta MP:', paymentResponse.status);
+
         if (paymentResponse.ok) {
           const payment = await paymentResponse.json();
-          console.log('📊 Pago encontrado:', payment.id, '- Estado:', payment.status);
+          console.log('📊 Pago encontrado:', payment.id, '- Estado:', payment.status, '- Ref:', payment.external_reference);
           
           // Verificar que el pago corresponde a esta orden
           if (payment.external_reference === orderId.toString()) {
             if (payment.status === 'approved') {
               approvedPayment = payment;
+              console.log('✅ Pago aprobado y verificado!');
             } else if (payment.status === 'rejected') {
               console.log('❌ Pago rechazado');
               await this.prisma.order.update({
@@ -212,10 +215,15 @@ export class PaymentsService {
                 status: 'cancelado',
                 message: 'Pago rechazado'
               };
+            } else {
+              console.log('⏳ Pago en estado:', payment.status);
             }
           } else {
-            console.warn('⚠️ El payment_id no corresponde a esta orden');
+            console.warn('⚠️ El payment_id no corresponde a esta orden. Esperado:', orderId, 'Recibido:', payment.external_reference);
           }
+        } else {
+          const errorText = await paymentResponse.text();
+          console.error('❌ Error consultando pago directo:', paymentResponse.status, errorText.substring(0, 200));
         }
       }
 
