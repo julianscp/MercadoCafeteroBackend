@@ -191,8 +191,33 @@ export class PaymentsService {
       const paymentId = data.data?.id || data.id;
 
       try {
-        // Obtener información del pago
-        const payment = await this.paymentClient.get({ id: paymentId });
+        // Obtener información del pago con reintentos
+        console.log(`💳 Obteniendo pago ${paymentId}...`);
+        
+        let payment;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+          try {
+            payment = await this.paymentClient.get({ id: paymentId });
+            console.log('✅ Pago obtenido exitosamente');
+            break;
+          } catch (error) {
+            attempts++;
+            if (error.status === 404 && attempts < maxAttempts) {
+              console.log(`⏳ Pago aún no disponible, reintentando en ${attempts * 2} segundos... (intento ${attempts}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, attempts * 2000)); // 2s, 4s, 6s
+            } else {
+              throw error;
+            }
+          }
+        }
+        
+        if (!payment) {
+          console.error('❌ No se pudo obtener el pago después de varios intentos');
+          return { processed: false, message: 'Payment not ready yet, will retry with merchant_order webhook' };
+        }
         
         console.log('💳 Información del pago:', JSON.stringify(payment, null, 2));
 
