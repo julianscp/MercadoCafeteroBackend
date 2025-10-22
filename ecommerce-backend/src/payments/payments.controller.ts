@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request, HttpCode, HttpStatus, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePreferenceDto } from './dto/create-preference.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -17,10 +17,14 @@ export class PaymentsController {
     return this.paymentsService.createPreference(userId, createPreferenceDto);
   }
 
-  @Post('webhook')
-  @HttpCode(HttpStatus.OK)
-  async processWebhook(@Body() body: any) {
-    return this.paymentsService.processWebhook(body);
+  @UseGuards(JwtAuthGuard)
+  @Get('check/:orderId')
+  async checkPayment(
+    @Request() req,
+    @Param('orderId', ParseIntPipe) orderId: number
+  ) {
+    const userId = req.user.userId;
+    return this.paymentsService.checkPaymentStatus(orderId, userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -33,4 +37,3 @@ export class PaymentsController {
     return this.paymentsService.getOrderStatus(orderId, userId);
   }
 }
-
