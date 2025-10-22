@@ -45,4 +45,18 @@ export class PaymentsController {
     const userId = req.user.userId;
     return this.paymentsService.getOrderStatus(orderId, userId);
   }
+
+  /**
+   * Fuerza la sincronización de una orden con Mercado Pago
+   * El usuario debe estar autenticado y ser dueño de la orden
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('order/:id/sync')
+  async syncOrder(
+    @Request() req,
+    @Param('id', ParseIntPipe) orderId: number
+  ) {
+    const userId = req.user.userId;
+    return this.paymentsService.syncOrderWithMercadoPago(orderId, userId);
+  }
 }
