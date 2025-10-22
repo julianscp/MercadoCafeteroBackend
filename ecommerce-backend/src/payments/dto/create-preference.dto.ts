@@ -1,4 +1,4 @@
-import { IsArray, IsNumber, IsPositive, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsArray, IsNumber, IsPositive, ValidateNested, ArrayMinSize, IsString, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ProductItemDto {
@@ -17,5 +17,9 @@ export class CreatePreferenceDto {
   @ValidateNested({ each: true })
   @Type(() => ProductItemDto)
   items: ProductItemDto[];
+
+  @IsString()
+  @IsOptional()
+  direccionEnvio?: string;
 }
 

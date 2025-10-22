@@ -31,7 +31,7 @@ export class PaymentsService {
   async createPreference(userId: number, createPreferenceDto: CreatePreferenceDto) {
     try {
       console.log('🛒 Creando preferencia para usuario:', userId);
-      const { items } = createPreferenceDto;
+      const { items, direccionEnvio } = createPreferenceDto;
 
       // Obtener usuario
       const user = await this.prisma.user.findUnique({
@@ -107,6 +107,7 @@ export class PaymentsService {
           products: orderProducts,
           total,
           status: 'pendiente',
+          direccionEnvio: direccionEnvio || null,
           mercadoPagoData: {}
         }
       });

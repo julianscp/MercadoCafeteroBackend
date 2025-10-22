@@ -202,4 +202,121 @@ export class OrdersService {
       fechaRegistro: customer.createdAt
     }));
   }
+
+  // Métodos para administración de pedidos
+
+  async getAllOrders() {
+    return this.prisma.order.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+            telefono: true,
+            direccion: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async getPendingOrders() {
+    return this.prisma.order.findMany({
+      where: {
+        status: 'completado' // Pedidos pagados pero no despachados
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+            telefono: true,
+            direccion: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async confirmOrder(orderId: number, adminId: number) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    if (order.status !== 'completado') {
+      throw new BadRequestException('Solo se pueden confirmar pedidos completados');
+    }
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'confirmado',
+        updatedAt: new Date()
+      }
+    });
+
+    // Log de la acción del admin
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { email: true }
+    });
+
+    if (admin) {
+      await this.loggingService.logInventoryChange(
+        adminId,
+        admin.email,
+        orderId,
+        0,
+        `Admin confirmó/despachó pedido #${orderId}`,
+        undefined
+      );
+    }
+
+    return updatedOrder;
+  }
+
+  async addOrderObservation(orderId: number, observacion: string, adminId: number) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        observacionesAdmin: observacion,
+        updatedAt: new Date()
+      }
+    });
+
+    // Log de la acción del admin
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { email: true }
+    });
+
+    if (admin) {
+      await this.loggingService.logInventoryChange(
+        adminId,
+        admin.email,
+        orderId,
+        0,
+        `Admin agregó observación a pedido #${orderId}: ${observacion}`,
+        undefined
+      );
+    }
+
+    return updatedOrder;
+  }
 }
