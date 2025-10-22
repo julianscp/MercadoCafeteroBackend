@@ -186,9 +186,9 @@ export class PaymentsService {
   async processWebhook(data: any) {
     console.log('📨 Webhook recibido de Mercado Pago:', JSON.stringify(data, null, 2));
 
-    // Mercado Pago envía notificaciones de tipo "payment"
-    if (data.type === 'payment') {
-      const paymentId = data.data.id;
+    // Mercado Pago envía notificaciones de tipo "payment" o "merchant_order"
+    if (data.type === 'payment' || data.topic === 'payment') {
+      const paymentId = data.data?.id || data.id;
 
       try {
         // Obtener información del pago
@@ -275,6 +275,131 @@ export class PaymentsService {
         return { processed: true, orderId, status: newStatus };
       } catch (error) {
         console.error('❌ Error procesando webhook:', error);
+        return { processed: false, error: error.message };
+      }
+    }
+
+    // Procesar notificaciones de tipo merchant_order
+    if (data.topic === 'merchant_order') {
+      try {
+        console.log('🛍️ Procesando merchant_order...');
+        
+        // Obtener el merchant_order de la URL del resource
+        const merchantOrderUrl = data.resource;
+        if (!merchantOrderUrl) {
+          console.error('❌ No se encontró resource URL en merchant_order');
+          return { processed: false, message: 'No resource URL' };
+        }
+
+        // Extraer el ID del merchant_order de la URL
+        const merchantOrderId = merchantOrderUrl.split('/').pop();
+        console.log('📋 Merchant Order ID:', merchantOrderId);
+
+        // Hacer request a la API de Mercado Pago para obtener los detalles
+        const response = await fetch(merchantOrderUrl, {
+          headers: {
+            'Authorization': `Bearer ${this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN')}`
+          }
+        });
+
+        if (!response.ok) {
+          console.error('❌ Error obteniendo merchant_order:', response.statusText);
+          return { processed: false, message: 'Error fetching merchant_order' };
+        }
+
+        const merchantOrder = await response.json();
+        console.log('🛍️ Merchant Order:', JSON.stringify(merchantOrder, null, 2));
+
+        // Obtener el external_reference (nuestro orderId)
+        const externalReference = merchantOrder.external_reference;
+        if (!externalReference) {
+          console.error('❌ No se encontró external_reference en merchant_order');
+          return { processed: false };
+        }
+
+        const orderId = parseInt(externalReference);
+        if (!orderId) {
+          console.error('❌ external_reference no es un número válido');
+          return { processed: false };
+        }
+
+        // Buscar la orden
+        const order = await this.prisma.order.findUnique({
+          where: { id: orderId }
+        });
+
+        if (!order) {
+          console.error(`❌ Orden ${orderId} no encontrada`);
+          return { processed: false };
+        }
+
+        // Obtener el pago del merchant_order
+        const payments = merchantOrder.payments || [];
+        if (payments.length === 0) {
+          console.log('⏳ Merchant order sin pagos aún');
+          return { processed: true, message: 'No payments yet' };
+        }
+
+        // Tomar el primer pago
+        const payment = payments[0];
+        console.log('💳 Payment del merchant_order:', JSON.stringify(payment, null, 2));
+
+        // Actualizar estado de la orden según el estado del pago
+        let newStatus = 'pendiente';
+        
+        if (payment.status === 'approved') {
+          newStatus = 'completado';
+          
+          // Descontar stock de los productos
+          const orderProducts = order.products as any[];
+          for (const item of orderProducts) {
+            await this.prisma.product.update({
+              where: { id: item.id },
+              data: {
+                stock: {
+                  decrement: item.cantidad
+                }
+              }
+            });
+
+            // Crear log de stock
+            await this.prisma.stockLog.create({
+              data: {
+                productoId: item.id,
+                cantidad: -item.cantidad,
+                tipo: 'SALIDA',
+                usuarioId: order.userId,
+              }
+            });
+          }
+        } else if (payment.status === 'rejected') {
+          newStatus = 'cancelado';
+        } else if (payment.status === 'in_process' || payment.status === 'pending') {
+          newStatus = 'pendiente';
+        }
+
+        // Actualizar orden
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: {
+            status: newStatus,
+            mercadoPagoData: {
+              preferenceId: order.mercadoPagoData?.['preferenceId'],
+              merchantOrderId: merchantOrder.id?.toString(),
+              paymentId: payment.id?.toString() || 'unknown',
+              paymentStatus: payment.status,
+              paymentStatusDetail: payment.status_detail,
+              transactionAmount: payment.transaction_amount,
+              paymentMethod: payment.payment_method_id,
+            }
+          }
+        });
+
+        console.log(`✅ Orden ${orderId} actualizada a estado: ${newStatus}`);
+
+        return { processed: true, orderId, status: newStatus };
+      } catch (error) {
+        console.error('❌ Error procesando merchant_order webhook:', error);
         return { processed: false, error: error.message };
       }
     }
