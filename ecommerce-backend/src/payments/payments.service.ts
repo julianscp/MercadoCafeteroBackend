@@ -196,7 +196,7 @@ export class PaymentsService {
         
         let payment;
         let attempts = 0;
-        const maxAttempts = 3;
+        const maxAttempts = 5;
         
         while (attempts < maxAttempts) {
           try {
@@ -206,8 +206,9 @@ export class PaymentsService {
           } catch (error) {
             attempts++;
             if (error.status === 404 && attempts < maxAttempts) {
-              console.log(`⏳ Pago aún no disponible, reintentando en ${attempts * 2} segundos... (intento ${attempts}/${maxAttempts})`);
-              await new Promise(resolve => setTimeout(resolve, attempts * 2000)); // 2s, 4s, 6s
+              const waitTime = attempts * 3; // 3s, 6s, 9s, 12s, 15s
+              console.log(`⏳ Pago aún no disponible, reintentando en ${waitTime} segundos... (intento ${attempts}/${maxAttempts})`);
+              await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
             } else {
               throw error;
             }
