@@ -175,18 +175,36 @@ export class PaymentsService {
 
         console.log('💳 Procesando payment ID:', paymentId);
 
-        // Obtener información del pago
+        // Obtener información del pago con retry logic
         const accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
-        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
+        let payment: any = null;
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (attempts < maxAttempts && !payment) {
+          attempts++;
+          
+          const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
 
-        if (!paymentResponse.ok) {
-          console.error('❌ Error obteniendo payment:', paymentResponse.status);
-          return { processed: false, message: 'Error fetching payment' };
+          if (paymentResponse.ok) {
+            payment = await paymentResponse.json();
+            console.log(`✅ Payment obtenido en intento ${attempts}`);
+            break;
+          } else if (paymentResponse.status === 404 && attempts < maxAttempts) {
+            console.log(`⏳ Payment no disponible aún, reintentando en ${attempts * 2}s... (${attempts}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, attempts * 2000)); // 2s, 4s, 6s, 8s
+          } else {
+            console.error('❌ Error obteniendo payment:', paymentResponse.status);
+            return { processed: false, message: 'Error fetching payment after retries' };
+          }
         }
 
-        const payment = await paymentResponse.json();
+        if (!payment) {
+          console.error('❌ No se pudo obtener el payment después de', maxAttempts, 'intentos');
+          return { processed: false, message: 'Payment not available after retries' };
+        }
         console.log('💰 Payment status:', payment.status, '- External ref:', payment.external_reference);
 
         // Buscar orden por external_reference
