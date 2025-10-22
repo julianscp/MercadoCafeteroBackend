@@ -206,7 +206,7 @@ export class OrdersService {
   // Métodos para administración de pedidos
 
   async getAllOrders() {
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       include: {
         user: {
           select: {
@@ -220,10 +220,16 @@ export class OrdersService {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    // Asegurar que products siempre sea un array
+    return orders.map(order => ({
+      ...order,
+      products: Array.isArray(order.products) ? order.products : []
+    }));
   }
 
   async getPendingOrders() {
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: {
         status: 'completado' // Pedidos pagados pero no despachados
       },
@@ -240,6 +246,12 @@ export class OrdersService {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    // Asegurar que products siempre sea un array
+    return orders.map(order => ({
+      ...order,
+      products: Array.isArray(order.products) ? order.products : []
+    }));
   }
 
   async confirmOrder(orderId: number, adminId: number) {
