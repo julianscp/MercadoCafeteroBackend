@@ -162,68 +162,56 @@ export class PaymentsService {
 
   async processWebhook(data: any) {
     try {
-      console.log('📨 Webhook recibido:', data.topic);
+      const webhookType = data.topic || data.type;
+      console.log('📨 Webhook recibido:', webhookType);
 
-      // Solo procesar webhooks de merchant_order
-      if (data.topic !== 'merchant_order') {
-        return { processed: false, message: 'Only merchant_order webhooks are processed' };
-      }
+      // Procesar webhooks de tipo payment
+      if (webhookType === 'payment' || data.type === 'payment') {
+        const paymentId = data.data?.id || data.id;
+        if (!paymentId) {
+          console.error('❌ No payment ID en webhook');
+          return { processed: false, message: 'No payment ID' };
+        }
 
-      const merchantOrderUrl = data.resource;
-      if (!merchantOrderUrl) {
-        console.error('❌ No resource URL en webhook');
-        return { processed: false, message: 'No resource URL' };
-      }
+        console.log('💳 Procesando payment ID:', paymentId);
 
-      // Obtener merchant_order
-      const accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
-      const response = await fetch(merchantOrderUrl, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
+        // Obtener información del pago
+        const accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
 
-      if (!response.ok) {
-        console.error('❌ Error obteniendo merchant_order:', response.status);
-        return { processed: false, message: 'Error fetching merchant_order' };
-      }
+        if (!paymentResponse.ok) {
+          console.error('❌ Error obteniendo payment:', paymentResponse.status);
+          return { processed: false, message: 'Error fetching payment' };
+        }
 
-      const merchantOrder = await response.json();
-      const payments = merchantOrder.payments || [];
+        const payment = await paymentResponse.json();
+        console.log('💰 Payment status:', payment.status, '- External ref:', payment.external_reference);
 
-      console.log('🛍️ Merchant Order:', merchantOrder.id, '- Pagos:', payments.length);
+        // Buscar orden por external_reference
+        const orderId = parseInt(payment.external_reference);
+        if (!orderId) {
+          console.error('❌ external_reference inválido en payment');
+          return { processed: false, message: 'Invalid order ID' };
+        }
 
-      // Si no hay pagos, aún no se completó
-      if (payments.length === 0) {
-        console.log('⏳ Sin pagos aún');
-        return { processed: true, message: 'No payments yet' };
-      }
+        const order = await this.prisma.order.findUnique({
+          where: { id: orderId }
+        });
 
-      // Obtener orderId
-      const orderId = parseInt(merchantOrder.external_reference);
-      if (!orderId) {
-        console.error('❌ external_reference inválido');
-        return { processed: false, message: 'Invalid order ID' };
-      }
+        if (!order) {
+          console.error('❌ Orden no encontrada:', orderId);
+          return { processed: false, message: 'Order not found' };
+        }
 
-      // Buscar orden
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId }
-      });
+        // Solo actualizar si el pago está aprobado
+        if (payment.status !== 'approved') {
+          console.log('⏳ Pago no aprobado aún:', payment.status);
+          return { processed: true, message: 'Payment not approved yet' };
+        }
 
-      if (!order) {
-        console.error('❌ Orden no encontrada:', orderId);
-        return { processed: false, message: 'Order not found' };
-      }
-
-      // Procesar pago
-      const payment = payments[0];
-      let newStatus = 'pendiente';
-      
-      console.log('💳 Estado del pago:', payment.status);
-      
-      if (payment.status === 'approved') {
-        newStatus = 'completado';
-        
-        // Descontar stock
+        // Actualizar orden a completado
         const orderProducts = order.products as any[];
         for (const item of orderProducts) {
           await this.prisma.product.update({
@@ -240,29 +228,125 @@ export class PaymentsService {
             }
           });
         }
-      } else if (payment.status === 'rejected') {
-        newStatus = 'cancelado';
+
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: {
+            status: 'completado',
+            mercadoPagoData: {
+              preferenceId: order.mercadoPagoData?.['preferenceId'],
+              paymentId: payment.id?.toString(),
+              paymentStatus: payment.status,
+              transactionAmount: payment.transaction_amount,
+              paymentMethod: payment.payment_method_id,
+            }
+          }
+        });
+
+        console.log(`✅ Orden ${orderId} actualizada a: completado`);
+        return { processed: true, orderId, status: 'completado' };
       }
 
-      // Actualizar orden
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: newStatus,
-          mercadoPagoData: {
-            preferenceId: order.mercadoPagoData?.['preferenceId'],
-            merchantOrderId: merchantOrder.id?.toString(),
-            paymentId: payment.id?.toString(),
-            paymentStatus: payment.status,
-            transactionAmount: payment.transaction_amount,
-            paymentMethod: payment.payment_method_id,
-          }
+      // Procesar webhooks de tipo merchant_order
+      if (webhookType === 'merchant_order') {
+        const merchantOrderUrl = data.resource;
+        if (!merchantOrderUrl) {
+          console.error('❌ No resource URL en webhook');
+          return { processed: false, message: 'No resource URL' };
         }
-      });
 
-      console.log(`✅ Orden ${orderId} actualizada a: ${newStatus}`);
+        // Obtener merchant_order
+        const accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+        const response = await fetch(merchantOrderUrl, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
 
-      return { processed: true, orderId, status: newStatus };
+        if (!response.ok) {
+          console.error('❌ Error obteniendo merchant_order:', response.status);
+          return { processed: false, message: 'Error fetching merchant_order' };
+        }
+
+        const merchantOrder = await response.json();
+        const payments = merchantOrder.payments || [];
+
+        console.log('🛍️ Merchant Order:', merchantOrder.id, '- Pagos:', payments.length);
+
+        // Si no hay pagos, aún no se completó
+        if (payments.length === 0) {
+          console.log('⏳ Sin pagos aún');
+          return { processed: true, message: 'No payments yet' };
+        }
+
+        // Obtener orderId
+        const orderId = parseInt(merchantOrder.external_reference);
+        if (!orderId) {
+          console.error('❌ external_reference inválido');
+          return { processed: false, message: 'Invalid order ID' };
+        }
+
+        // Buscar orden
+        const order = await this.prisma.order.findUnique({
+          where: { id: orderId }
+        });
+
+        if (!order) {
+          console.error('❌ Orden no encontrada:', orderId);
+          return { processed: false, message: 'Order not found' };
+        }
+
+        // Procesar pago
+        const payment = payments[0];
+        let newStatus = 'pendiente';
+        
+        console.log('💳 Estado del pago:', payment.status);
+        
+        if (payment.status === 'approved') {
+          newStatus = 'completado';
+          
+          // Descontar stock
+          const orderProducts = order.products as any[];
+          for (const item of orderProducts) {
+            await this.prisma.product.update({
+              where: { id: item.id },
+              data: { stock: { decrement: item.cantidad } }
+            });
+
+            await this.prisma.stockLog.create({
+              data: {
+                productoId: item.id,
+                cantidad: -item.cantidad,
+                tipo: 'SALIDA',
+                usuarioId: order.userId,
+              }
+            });
+          }
+        } else if (payment.status === 'rejected') {
+          newStatus = 'cancelado';
+        }
+
+        // Actualizar orden
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: {
+            status: newStatus,
+            mercadoPagoData: {
+              preferenceId: order.mercadoPagoData?.['preferenceId'],
+              merchantOrderId: merchantOrder.id?.toString(),
+              paymentId: payment.id?.toString(),
+              paymentStatus: payment.status,
+              transactionAmount: payment.transaction_amount,
+              paymentMethod: payment.payment_method_id,
+            }
+          }
+        });
+
+        console.log(`✅ Orden ${orderId} actualizada a: ${newStatus}`);
+
+        return { processed: true, orderId, status: newStatus };
+      }
+
+      console.log('⚠️ Tipo de webhook no soportado:', webhookType);
+      return { processed: false, message: 'Webhook type not supported' };
     } catch (error) {
       console.error('❌ Error procesando webhook:', error);
       return { processed: false, error: error.message };
