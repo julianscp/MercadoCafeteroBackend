@@ -70,4 +70,75 @@ export class MailService {
     const text = `Tu código de verificación es ${code}`;
     return this.sendMail(to, subject, text, html);
   }
+
+  async sendComplaintResponse(to: string, nombre: string, reclamoId: number, respuesta: string) {
+    const subject = `Respuesta a tu reclamo #${reclamoId} - Mercado Cafetero`;
+    const html = `
+      <h2>Hola ${nombre},</h2>
+      <p>Hemos respondido a tu reclamo #${reclamoId}.</p>
+      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Respuesta del administrador:</h3>
+        <p>${respuesta}</p>
+      </div>
+      <p>Puedes ver tu reclamo y la respuesta en tu panel de cliente.</p>
+      <p>Saludos,<br>Equipo de Mercado Cafetero</p>
+    `;
+    const text = `Hola ${nombre},\n\nHemos respondido a tu reclamo #${reclamoId}.\n\nRespuesta: ${respuesta}\n\nPuedes ver tu reclamo en tu panel de cliente.`;
+    return this.sendMail(to, subject, text, html);
+  }
+
+  async sendOrderConfirmation(to: string, nombre: string, orderId: number, productos: any[], total: number, direccionEnvio: string) {
+    const subject = `Confirmación de compra #${orderId} - Mercado Cafetero`;
+    
+    const productosHtml = productos.map(p => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">${p.nombre}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">${p.cantidad}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${p.precio.toLocaleString('es-CO')}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${p.subtotal.toLocaleString('es-CO')}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <h2>¡Gracias por tu compra, ${nombre}!</h2>
+      <p>Tu pedido #${orderId} ha sido confirmado y está siendo procesado.</p>
+      
+      <h3>Detalles del pedido:</h3>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+          <tr style="background-color: #f3f4f6;">
+            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #d1d5db;">Producto</th>
+            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #d1d5db;">Cantidad</th>
+            <th style="padding: 10px; text-align: right; border-bottom: 2px solid #d1d5db;">Precio Unitario</th>
+            <th style="padding: 10px; text-align: right; border-bottom: 2px solid #d1d5db;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productosHtml}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold; border-top: 2px solid #d1d5db;">Total:</td>
+            <td style="padding: 10px; text-align: right; font-weight: bold; border-top: 2px solid #d1d5db;">$${total.toLocaleString('es-CO')}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <h3>📍 Dirección de envío:</h3>
+        <p>${direccionEnvio}</p>
+      </div>
+
+      <p>Te notificaremos cuando tu pedido sea despachado.</p>
+      <p>Saludos,<br>Equipo de Mercado Cafetero</p>
+    `;
+
+    const productosText = productos.map(p => 
+      `- ${p.nombre} x${p.cantidad} = $${p.subtotal.toLocaleString('es-CO')}`
+    ).join('\n');
+
+    const text = `¡Gracias por tu compra, ${nombre}!\n\nTu pedido #${orderId} ha sido confirmado.\n\nProductos:\n${productosText}\n\nTotal: $${total.toLocaleString('es-CO')}\n\nDirección de envío: ${direccionEnvio}\n\nTe notificaremos cuando tu pedido sea despachado.`;
+    
+    return this.sendMail(to, subject, text, html);
+  }
 }

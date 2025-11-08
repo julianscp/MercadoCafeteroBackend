@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Request, ParseIntPipe, Patch } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, UseGuards, Request, ParseIntPipe, Patch, Query } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AddObservationDto } from './dto/add-observation.dto';
@@ -74,5 +74,12 @@ export class OrdersController {
   ) {
     const adminId = req.user.userId;
     return this.ordersService.addOrderObservation(id, addObservationDto.observacion, adminId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('admin/ventas/estadisticas/:period')
+  getSalesStats(@Param('period') period: 'day' | 'week' | 'month') {
+    return this.ordersService.getSalesStats(period);
   }
 }

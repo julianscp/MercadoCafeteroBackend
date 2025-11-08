@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePreferenceDto } from './dto/create-preference.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class PaymentsService {
@@ -13,6 +14,7 @@ export class PaymentsService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private mailService: MailService,
   ) {
     this.accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN') || '';
     
@@ -303,7 +305,7 @@ export class PaymentsService {
     }
 
     // Actualizar orden
-    await this.prisma.order.update({
+    const updatedOrder = await this.prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'completado',
@@ -314,10 +316,36 @@ export class PaymentsService {
           transactionAmount: payment.transaction_amount,
           paymentMethod: payment.payment_method_id,
         }
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+            nombre: true
+          }
+        }
       }
     });
 
     console.log(`✅ Orden ${order.id} completada`);
+
+    // Enviar correo de confirmación de compra
+    try {
+      if (updatedOrder.direccionEnvio && orderProducts.length > 0) {
+        await this.mailService.sendOrderConfirmation(
+          updatedOrder.user.email,
+          updatedOrder.user.nombre,
+          updatedOrder.id,
+          orderProducts,
+          updatedOrder.total,
+          updatedOrder.direccionEnvio
+        );
+        console.log(`📧 Correo de confirmación enviado a ${updatedOrder.user.email}`);
+      }
+    } catch (error) {
+      console.error('Error enviando correo de confirmación:', error);
+      // No lanzar error, solo registrar
+    }
   }
 
   async getOrderStatus(orderId: number, userId: number) {

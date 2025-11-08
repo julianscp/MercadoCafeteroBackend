@@ -47,4 +47,14 @@ export class ReclamosController {
   ) {
     return this.reclamosService.updateReclamoStatus(id, estado);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch('admin/reclamos/:id/responder')
+  respondToReclamo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('respuesta') respuesta: string
+  ) {
+    return this.reclamosService.respondToReclamo(id, respuesta);
+  }
 }

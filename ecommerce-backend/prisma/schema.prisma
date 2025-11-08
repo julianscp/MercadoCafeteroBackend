@@ -104,13 +104,15 @@ model Order {
 }
 
 model Reclamo {
-  id         Int      @id @default(autoincrement())
-  user       User     @relation(fields: [userId], references: [id])
-  userId     Int
-  orderId    Int?
-  mensaje    String
-  estado     String   @default("pendiente")
-  createdAt  DateTime @default(now())
+  id            Int       @id @default(autoincrement())
+  user          User      @relation(fields: [userId], references: [id])
+  userId        Int
+  orderId       Int?
+  mensaje       String
+  respuesta     String?   // Respuesta del administrador
+  estado        String    @default("pendiente")
+  createdAt     DateTime  @default(now())
+  respondedAt   DateTime? // Fecha en que el admin respondió
 }
 
 model LogEntry {

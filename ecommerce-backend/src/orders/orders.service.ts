@@ -331,4 +331,102 @@ export class OrdersService {
 
     return updatedOrder;
   }
+
+  // Estadísticas de ventas
+  async getSalesStats(period: 'day' | 'week' | 'month') {
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'day':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // Obtener órdenes completadas en el período
+    const orders = await this.prisma.order.findMany({
+      where: {
+        status: 'completado',
+        createdAt: {
+          gte: startDate
+        }
+      },
+      select: {
+        id: true,
+        total: true,
+        products: true,
+        createdAt: true
+      }
+    });
+
+    // Calcular total de ventas
+    const totalSales = orders.reduce((sum, order) => sum + Number(order.total), 0);
+
+    // Calcular cantidad de pedidos
+    const orderCount = orders.length;
+
+    // Calcular producto más vendido
+    const productSales: { [key: number]: { nombre: string; cantidad: number; total: number } } = {};
+
+    for (const order of orders) {
+      const products = Array.isArray(order.products) ? order.products : [];
+      for (const product of products) {
+        const productId = product.id || product.productId;
+        const cantidad = product.cantidad || 0;
+        const precio = product.precio || 0;
+        const nombre = product.nombre || 'Producto desconocido';
+
+        if (!productSales[productId]) {
+          productSales[productId] = {
+            nombre,
+            cantidad: 0,
+            total: 0
+          };
+        }
+
+        productSales[productId].cantidad += cantidad;
+        productSales[productId].total += precio * cantidad;
+      }
+    }
+
+    // Encontrar el producto más vendido
+    let topProduct = null;
+    let maxCantidad = 0;
+
+    for (const [productId, stats] of Object.entries(productSales)) {
+      if (stats.cantidad > maxCantidad) {
+        maxCantidad = stats.cantidad;
+        topProduct = {
+          id: parseInt(productId),
+          nombre: stats.nombre,
+          cantidad: stats.cantidad,
+          total: stats.total
+        };
+      }
+    }
+
+    return {
+      period,
+      startDate,
+      endDate: now,
+      totalSales,
+      orderCount,
+      topProduct,
+      products: Object.entries(productSales).map(([id, stats]) => ({
+        id: parseInt(id),
+        nombre: stats.nombre,
+        cantidad: stats.cantidad,
+        total: stats.total
+      })).sort((a, b) => b.cantidad - a.cantidad)
+    };
+  }
 }
