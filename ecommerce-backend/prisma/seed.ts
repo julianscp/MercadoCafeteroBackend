@@ -6,41 +6,53 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando seed de datos...');
 
-  // Crear usuario administrador
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  
-  const admin = await prisma.user.create({
-    data: {
-      email: 'admin@mercadocafetero.com',
-      password: hashedPassword,
-      rol: 'admin',
-      nombre: 'Administrador',
-      direccion: 'Calle Principal 123',
-      telefono: '3001234567',
-      verificado: true,
-    },
+  // Crear usuario administrador (solo si no existe)
+  let admin = await prisma.user.findUnique({
+    where: { email: 'admin@mercadocafetero.com' },
   });
 
-  console.log('✅ Usuario administrador creado:', admin.email);
+  if (!admin) {
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    admin = await prisma.user.create({
+      data: {
+        email: 'admin@mercadocafetero.com',
+        password: hashedPassword,
+        rol: 'admin',
+        nombre: 'Administrador',
+        direccion: 'Calle Principal 123',
+        telefono: '3001234567',
+        verificado: true,
+      },
+    });
+    console.log('✅ Usuario administrador creado:', admin.email);
+  } else {
+    console.log('ℹ️ Usuario administrador ya existe:', admin.email);
+  }
 
-  // Crear usuario cliente de ejemplo
-  const clientPassword = await bcrypt.hash('cliente123', 10);
-  
-  const cliente = await prisma.user.create({
-    data: {
-      email: 'cliente@ejemplo.com',
-      password: clientPassword,
-      rol: 'cliente',
-      nombre: 'Juan Pérez',
-      direccion: 'Calle Secundaria 456',
-      telefono: '3009876543',
-      verificado: true,
-    },
+  // Crear usuario cliente de ejemplo (solo si no existe)
+  let cliente = await prisma.user.findUnique({
+    where: { email: 'cliente@ejemplo.com' },
   });
 
-  console.log('✅ Usuario cliente creado:', cliente.email);
+  if (!cliente) {
+    const clientPassword = await bcrypt.hash('cliente123', 10);
+    cliente = await prisma.user.create({
+      data: {
+        email: 'cliente@ejemplo.com',
+        password: clientPassword,
+        rol: 'cliente',
+        nombre: 'Juan Pérez',
+        direccion: 'Calle Secundaria 456',
+        telefono: '3009876543',
+        verificado: true,
+      },
+    });
+    console.log('✅ Usuario cliente creado:', cliente.email);
+  } else {
+    console.log('ℹ️ Usuario cliente ya existe:', cliente.email);
+  }
 
-  // Crear productos de café
+  // Crear productos de café con imágenes
   const productos = [
     {
       nombre: 'Café Premium Colombia',
@@ -53,6 +65,7 @@ async function main() {
       marca: 'Café Colombia',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Molido Tradicional',
@@ -65,6 +78,7 @@ async function main() {
       marca: 'Café Tradicional',
       descuento: 5,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Instantáneo Premium',
@@ -77,6 +91,7 @@ async function main() {
       marca: 'Café Express',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1517487881594-2787fef5ebf7?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Descafeinado',
@@ -89,6 +104,7 @@ async function main() {
       marca: 'Café Natural',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Orgánico',
@@ -101,6 +117,7 @@ async function main() {
       marca: 'Café Verde',
       descuento: 10,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Espresso Italiano',
@@ -113,6 +130,7 @@ async function main() {
       marca: 'Café Italiano',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café de Origen Etiopía',
@@ -125,6 +143,7 @@ async function main() {
       marca: 'Café Etiopía',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Molido Suave',
@@ -137,6 +156,7 @@ async function main() {
       marca: 'Café Suave',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Intenso',
@@ -149,6 +169,7 @@ async function main() {
       marca: 'Café Fuerte',
       descuento: 0,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&h=500&fit=crop',
     },
     {
       nombre: 'Café Gourmet Blend',
@@ -161,15 +182,59 @@ async function main() {
       marca: 'Café Gourmet',
       descuento: 15,
       estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&h=500&fit=crop',
+    },
+    {
+      nombre: 'Café Capuchino en Grano',
+      descripcion: 'Café especial para capuchino, con notas cremosas y dulces perfectas para leche.',
+      precio: 27000,
+      stock: 45,
+      stockMinimo: 10,
+      categoria: 'Café en Grano',
+      subcategoria: 'Especial',
+      marca: 'Café Delicioso',
+      descuento: 0,
+      estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500&h=500&fit=crop',
+    },
+    {
+      nombre: 'Café Americano Premium',
+      descripcion: 'Café americano premium, suave y equilibrado ideal para cualquier momento del día.',
+      precio: 19000,
+      stock: 55,
+      stockMinimo: 12,
+      categoria: 'Café Molido',
+      subcategoria: 'Americano',
+      marca: 'Café Premium',
+      descuento: 8,
+      estado: ProductEstado.ACTIVO,
+      imagenUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&h=500&fit=crop',
     },
   ];
 
-  // Crear productos
+  // Crear productos (solo si no existen)
   for (const producto of productos) {
-    const createdProduct = await prisma.product.create({
-      data: producto,
+    const existe = await prisma.product.findFirst({
+      where: { nombre: producto.nombre },
     });
-    console.log(`✅ Producto creado: ${createdProduct.nombre}`);
+
+    if (!existe) {
+      const createdProduct = await prisma.product.create({
+        data: producto,
+      });
+      console.log(`✅ Producto creado: ${createdProduct.nombre}`);
+    } else {
+      // Actualizar imagen si el producto existe pero no tiene imagen
+      if (!existe.imagenUrl && producto.imagenUrl) {
+        await prisma.product.update({
+          where: { id: existe.id },
+          data: { imagenUrl: producto.imagenUrl },
+        });
+        console.log(`🖼️ Imagen agregada a: ${existe.nombre}`);
+      } else {
+        console.log(`ℹ️ Producto ya existe: ${producto.nombre}`);
+      }
+    }
   }
 
   // Crear algunas órdenes de ejemplo
