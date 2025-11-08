@@ -380,10 +380,14 @@ export class OrdersService {
     for (const order of orders) {
       const products = Array.isArray(order.products) ? order.products : [];
       for (const product of products) {
-        const productId = product.id || product.productId;
-        const cantidad = product.cantidad || 0;
-        const precio = product.precio || 0;
-        const nombre = product.nombre || 'Producto desconocido';
+        if (!product) continue; // Skip null/undefined products
+        
+        const productId = (product as any).id || (product as any).productId;
+        if (!productId || typeof productId !== 'number') continue; // Skip invalid product IDs
+        
+        const cantidad = (product as any).cantidad || 0;
+        const precio = (product as any).precio || 0;
+        const nombre = (product as any).nombre || 'Producto desconocido';
 
         if (!productSales[productId]) {
           productSales[productId] = {
@@ -399,7 +403,7 @@ export class OrdersService {
     }
 
     // Encontrar el producto más vendido
-    let topProduct = null;
+    let topProduct: { id: number; nombre: string; cantidad: number; total: number } | null = null;
     let maxCantidad = 0;
 
     for (const [productId, stats] of Object.entries(productSales)) {
