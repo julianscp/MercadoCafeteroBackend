@@ -78,15 +78,15 @@ export class OrdersController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  @Get('admin/ventas/estadisticas/:period')
-  getSalesStats(@Param('period') period: 'day' | 'week' | 'month') {
-    return this.ordersService.getSalesStats(period);
+  @Get('admin/dashboard')
+  getDashboardStats() {
+    return this.ordersService.getDashboardStats();
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  @Get('admin/dashboard')
-  getDashboardStats() {
-    return this.ordersService.getDashboardStats();
+  @Get('admin/ventas/estadisticas/:period')
+  getSalesStats(@Param('period') period: 'day' | 'week' | 'month') {
+    return this.ordersService.getSalesStats(period);
   }
 }

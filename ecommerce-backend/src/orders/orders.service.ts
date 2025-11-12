@@ -436,9 +436,15 @@ export class OrdersService {
 
   // Estadísticas del dashboard
   async getDashboardStats() {
-    const now = new Date();
-    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    try {
+      const now = new Date();
+      const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      console.log('=== INICIANDO CÁLCULO DE ESTADÍSTICAS DEL DASHBOARD ===');
+      console.log('Fecha actual:', now);
+      console.log('Últimas 24h:', last24Hours);
+      console.log('Últimos 30 días:', last30Days);
 
     // ===== CLIENTES =====
     // Cantidad total de clientes
@@ -596,7 +602,16 @@ export class OrdersService {
       }
     });
 
-    return {
+    // Serializar fecha correctamente
+    const ultimoPedidoSerializado = ultimoPedido ? {
+      id: ultimoPedido.id,
+      total: Number(ultimoPedido.total),
+      status: ultimoPedido.status,
+      createdAt: ultimoPedido.createdAt.toISOString(),
+      user: ultimoPedido.user
+    } : null;
+
+    const resultado = {
       clientes: {
         total: totalClientes,
         ultimas24h: usuariosUltimas24h,
@@ -612,19 +627,27 @@ export class OrdersService {
         }
       },
       ventas: {
-        total30d: totalVentas30d,
+        total30d: Number(totalVentas30d),
         pedidosDespachados: pedidosDespachados,
         pedidosPendientes: pedidosPendientes,
         reclamosPendientes: reclamosPendientes,
         reclamosResueltos: reclamosResueltos,
-        ultimoPedido: ultimoPedido ? {
-          id: ultimoPedido.id,
-          total: ultimoPedido.total,
-          status: ultimoPedido.status,
-          createdAt: ultimoPedido.createdAt,
-          user: ultimoPedido.user
-        } : null
+        ultimoPedido: ultimoPedidoSerializado
       }
     };
+
+    console.log('=== ESTADÍSTICAS CALCULADAS EXITOSAMENTE ===');
+    console.log('Clientes total:', totalClientes);
+    console.log('Productos total:', totalProductos);
+    console.log('Ventas 30d:', totalVentas30d);
+
+    return resultado;
+    } catch (error: any) {
+      console.error('=== ERROR AL CALCULAR ESTADÍSTICAS DEL DASHBOARD ===');
+      console.error('Error:', error);
+      console.error('Stack:', error?.stack);
+      console.error('Message:', error?.message);
+      throw error;
+    }
   }
 }
