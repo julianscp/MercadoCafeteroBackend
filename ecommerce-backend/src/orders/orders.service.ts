@@ -433,4 +433,198 @@ export class OrdersService {
       })).sort((a, b) => b.cantidad - a.cantidad)
     };
   }
+
+  // Estadísticas del dashboard
+  async getDashboardStats() {
+    const now = new Date();
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // ===== CLIENTES =====
+    // Cantidad total de clientes
+    const totalClientes = await this.prisma.user.count({
+      where: { rol: 'cliente' }
+    });
+
+    // Usuarios registrados en las últimas 24h
+    const usuariosUltimas24h = await this.prisma.user.count({
+      where: {
+        rol: 'cliente',
+        createdAt: { gte: last24Hours }
+      }
+    });
+
+    // Alertas de inicios de sesión fallidos (últimas 24h)
+    const loginFallidos = await this.prisma.logEntry.count({
+      where: {
+        event: 'FAILED_LOGIN',
+        timestamp: { gte: last24Hours }
+      }
+    });
+
+    // Cliente MVP (con más compras en últimos 30 días)
+    const ordersLast30Days = await this.prisma.order.findMany({
+      where: {
+        status: 'completado',
+        createdAt: { gte: last30Days }
+      },
+      select: {
+        userId: true,
+        user: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Contar compras por cliente
+    const comprasPorCliente: { [key: number]: { count: number; user: any } } = {};
+    ordersLast30Days.forEach(order => {
+      if (!comprasPorCliente[order.userId]) {
+        comprasPorCliente[order.userId] = {
+          count: 0,
+          user: order.user
+        };
+      }
+      comprasPorCliente[order.userId].count++;
+    });
+
+    // Encontrar cliente MVP
+    let clienteMVP: { id: number; nombre: string; email: string; compras: number } | null = null;
+    let maxCompras = 0;
+    for (const [userId, data] of Object.entries(comprasPorCliente)) {
+      if (data.count > maxCompras) {
+        maxCompras = data.count;
+        clienteMVP = {
+          id: data.user.id,
+          nombre: data.user.nombre,
+          email: data.user.email,
+          compras: data.count
+        };
+      }
+    }
+
+    // ===== PRODUCTOS =====
+    // Cantidad total de productos
+    const totalProductos = await this.prisma.product.count({
+      where: { estado: 'ACTIVO' }
+    });
+
+    // Productos con stock crítico (obtener y filtrar en memoria)
+    const productosActivos = await this.prisma.product.findMany({
+      where: { estado: 'ACTIVO' },
+      select: {
+        id: true,
+        stock: true,
+        stockMinimo: true
+      }
+    });
+
+    // Productos con stock crítico: stock <= 0 o stock <= stockMinimo (si stockMinimo está definido)
+    const productosCriticos = productosActivos.filter(
+      p => {
+        if (p.stock <= 0) return true; // Stock agotado o negativo siempre es crítico
+        if (p.stockMinimo != null && p.stock <= p.stockMinimo) return true; // Stock por debajo del mínimo
+        return false;
+      }
+    ).length;
+
+    // Movimientos de stock (últimos 30 días)
+    const movimientosStock = await this.prisma.stockLog.groupBy({
+      by: ['tipo'],
+      where: {
+        fecha: { gte: last30Days }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const entradasStock = movimientosStock.find(m => m.tipo === 'ENTRADA')?._count.id || 0;
+    const salidasStock = movimientosStock.find(m => m.tipo === 'SALIDA')?._count.id || 0;
+
+    // ===== VENTAS =====
+    // Ventas de los últimos 30 días
+    const ventasLast30Days = await this.prisma.order.findMany({
+      where: {
+        status: 'completado',
+        createdAt: { gte: last30Days }
+      },
+      select: {
+        total: true
+      }
+    });
+
+    const totalVentas30d = ventasLast30Days.reduce((sum, order) => sum + Number(order.total), 0);
+
+    // Pedidos despachados
+    const pedidosDespachados = await this.prisma.order.count({
+      where: { status: 'despachado' }
+    });
+
+    // Pedidos pendientes
+    const pedidosPendientes = await this.prisma.order.count({
+      where: {
+        status: { in: ['completado', 'pendiente', 'confirmado'] }
+      }
+    });
+
+    // Reclamos pendientes
+    const reclamosPendientes = await this.prisma.reclamo.count({
+      where: { estado: 'pendiente' }
+    });
+
+    // Reclamos resueltos
+    const reclamosResueltos = await this.prisma.reclamo.count({
+      where: { estado: 'resuelto' }
+    });
+
+    // Último pedido recibido
+    const ultimoPedido = await this.prisma.order.findFirst({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    return {
+      clientes: {
+        total: totalClientes,
+        ultimas24h: usuariosUltimas24h,
+        loginFallidos: loginFallidos,
+        clienteMVP: clienteMVP
+      },
+      productos: {
+        total: totalProductos,
+        stockCritico: productosCriticos,
+        movimientos: {
+          entradas: entradasStock,
+          salidas: salidasStock
+        }
+      },
+      ventas: {
+        total30d: totalVentas30d,
+        pedidosDespachados: pedidosDespachados,
+        pedidosPendientes: pedidosPendientes,
+        reclamosPendientes: reclamosPendientes,
+        reclamosResueltos: reclamosResueltos,
+        ultimoPedido: ultimoPedido ? {
+          id: ultimoPedido.id,
+          total: ultimoPedido.total,
+          status: ultimoPedido.status,
+          createdAt: ultimoPedido.createdAt,
+          user: ultimoPedido.user
+        } : null
+      }
+    };
+  }
 }

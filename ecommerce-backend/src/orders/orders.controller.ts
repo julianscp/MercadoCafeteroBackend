@@ -82,4 +82,11 @@ export class OrdersController {
   getSalesStats(@Param('period') period: 'day' | 'week' | 'month') {
     return this.ordersService.getSalesStats(period);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('admin/dashboard')
+  getDashboardStats() {
+    return this.ordersService.getDashboardStats();
+  }
 }
